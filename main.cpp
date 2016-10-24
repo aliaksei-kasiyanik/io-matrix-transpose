@@ -3,30 +3,36 @@
 #include <math.h>
 
 using namespace std;
+using namespace std::chrono;
+
 
 namespace {
 
     const string IN = "/Users/akasiyanik/FPMI/Tolstikov/io-matrix-transpose/in.bin";
-    const string OUT = "/Users/akasiyanik/FPMI/Tolstikov/io-matrix-transpose/out.bin";
+    const string OUT = "/Users/akasiyanik/FPMI/Tolstikov/io-matrix-transpose/out2.bin";
 //    const string IN = "input.bin";
 //    const string OUT = "output.bin";
-    const int BLOCK = 2;
+    const int BLOCK = 13;
 
     void readBlockA(ifstream &in, int block_i, int block_j, int block_size, int block_n, int block_m, int n, int m,
             uint8_t *__restrict a) {
         int startA = 8;
-        int shiftToNextRow = m - block_m;
         int block_start_position = startA + m * block_size * block_i + block_size * block_j;
         in.seekg(block_start_position, ios_base::beg);
 
-        for (int i = 0; i < block_n; ++i) {
-            if (i != 0) {
-                in.seekg(shiftToNextRow, ios_base::cur);
-            }
-            char buffer[block_m];
-            in.read(buffer, block_m);
-            for (int j = 0; j < block_m; ++j) {
-                a[i * block_m + j] = (uint8_t) buffer[j];
+        int shiftToNextRow = m - block_m;
+        if (shiftToNextRow == 0) {
+            in.read((char*) a, block_n * block_m);
+        } else {
+            for (int i = 0; i < block_n; ++i) {
+                if (i != 0) {
+                    in.seekg(shiftToNextRow, ios_base::cur);
+                }
+                char buffer[block_m];
+                in.read(buffer, block_m);
+                for (int j = 0; j < block_m; ++j) {
+                    a[i * block_m + j] = (uint8_t) buffer[j];
+                }
             }
         }
 
@@ -36,20 +42,24 @@ namespace {
             uint8_t *__restrict a) {
         int startC = 8;
 
-        int shiftToNextRow = m - block_m;
-
         int block_start_position = startC + m * block_size * block_i + block_size * block_j;
         out.seekp(block_start_position, ios_base::beg);
 
-        for (int i = 0; i < block_n; ++i) {
-            if (i != 0) {
-                out.seekp(shiftToNextRow, ios_base::cur);
+
+        int shiftToNextRow = m - block_m;
+        if (shiftToNextRow == 0) {
+            out.write((char*) a, block_n * block_m);
+        } else {
+            for (int i = 0; i < block_n; ++i) {
+                if (i != 0) {
+                    out.seekp(shiftToNextRow, ios_base::cur);
+                }
+                char buffer[block_m];
+                for (int j = 0; j < block_m; ++j) {
+                    buffer[j] = a[i * block_m + j];
+                }
+                out.write(buffer, block_m);
             }
-            char buffer[block_m];
-            for (int j = 0; j < block_m; ++j) {
-                buffer[j] = a[i * block_m + j];
-            }
-            out.write(buffer, block_m);
         }
     }
 
@@ -66,7 +76,7 @@ namespace {
         }
     }
 
-    void BlockMult(int BLOCK) {
+    void BlockTranspose(int BLOCK) {
         ifstream in(IN, ios::in | ios::binary);
         ofstream out(OUT, ios::out | ios::binary);
         if (in.is_open() && out.is_open()) {
@@ -158,11 +168,15 @@ namespace {
 
 
 int main(int argc, char *argv[]) {
-    generateInFile(2, 8);
+    high_resolution_clock::time_point t1 = high_resolution_clock::now();
+    generateInFile(50, 11);
     printInFile();
-    BlockMult(3);
+    BlockTranspose(BLOCK);
     printOutFile();
-//    test();
+    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+
+    auto duration = duration_cast<milliseconds>( t2 - t1 ).count();
+    cout<<duration;
     return 0;
 }
 
